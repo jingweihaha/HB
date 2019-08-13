@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Bot.Connector.DirectLine;
 using System.Net.Http;
 using System.Threading;
+using System.Text.RegularExpressions;
 
 namespace HealthBot
 {
@@ -14,45 +15,70 @@ namespace HealthBot
         public static async Task Main()
         {
             var secret = "oSja0WXU_wk.eZJsFsUbHf5cpuQ8EqNqLevrRIPqylHJBt7vIlCi1WA";
-            // var secret = "kp6yaclbpmofeywzboayqvlhlquykl";
+            var botName = "HB-Genzeon";
             var client = new DirectLineClient(secret);
             var cnv = client.Conversations.StartConversation();
-            int index = 0;
-            var old_acts = new ActivitySet();
-            var new_acts = new ActivitySet();
-
-            while (true)
+            var stringList = new List<String>();
+            bool exit = false;
+            int prevMsgs = 0;
+            do
             {
+                Console.Write("Type your message: ");
                 var input = Console.ReadLine();
-                var actGreeting = new Activity() { From = new ChannelAccount("sid", "sname"), Text = input, Type = "message" };
-                old_acts = await client.Conversations.GetActivitiesAsync(cnv.ConversationId);
-                var rr = await client.Conversations.PostActivityAsync(cnv.ConversationId, actGreeting);
-                new_acts = await client.Conversations.GetActivitiesAsync(cnv.ConversationId);
-                var diff_acts = new ActivitySet();
-                diff_acts.Activities = new List<Activity>();
-                for(int i = old_acts.Activities.Count; i<new_acts.Activities.Count; i++)
+                if (string.IsNullOrWhiteSpace(input)) continue;
+                if (Regex.IsMatch(input, "bye|exit|quit"))
                 {
-                    diff_acts.Activities.Add(new_acts.Activities[i]);
+                    exit = true;
                 }
-                
-
-                while (index < diff_acts.Activities.Count)
+                else
                 {
-                    if (index % 2 != 0)
+                    var usrMsg = new Activity() { From = new ChannelAccount("sid", "sname"), Text = input, Type = "message" };
+                    var rr = client.Conversations.PostActivity(cnv.ConversationId, usrMsg);
+                    Thread.Sleep(850);
+                    var acts = client.Conversations.GetActivities(cnv.ConversationId);
+                    var botMsgs = acts.Activities.Where(a => a.From.Name == botName);
+                    //var botMsgs = acts.Activities;
+
+                    foreach (var bm in botMsgs.Skip(prevMsgs))
                     {
-                        var output = diff_acts.Activities[index].Text;
-                        Console.WriteLine("Genzeon Bot: " + output);
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine($"Bot Message: {bm.Text}");
                     }
-                    index++;
+                    Console.ResetColor();
+                    prevMsgs = botMsgs.Count();
                 }
+            } while (!exit);
 
-                //var actPurpose = new Activity() { From = new ChannelAccount("sid", "sname"), Text = "Genzeon Provider", Type = "message" };
-                //rr = client.Conversations.PostActivity(cnv.ConversationId, actPurpose);
-                //acts = client.Conversations.GetActivities(cnv.ConversationId);
-            }
+            //while (true)
+            //{
+            //    int index = 0;
 
-            
+            //    var input = Console.ReadLine();
+            //    if (input == "bye" || input == "exit")
+            //    {
+            //        break;
+            //    }
+            //    var actGreeting = new Activity() { From = new ChannelAccount("sid", "sname"), Text = input, Type = "message" };
+            //    var rr = client.Conversations.PostActivity(cnv.ConversationId, actGreeting);
+            //    Thread.Sleep(850);
+            //    stringList.Add(rr.Id);
+            //    var acts = client.Conversations.GetActivities(cnv.ConversationId);
 
+
+            //    while (index < acts.Activities.Count)
+            //    {
+            //        if (!stringList.Contains(acts.Activities[index].Id))
+            //        {
+            //            var output = acts.Activities[index].Text;
+            //            Console.WriteLine("Genzeon Bot: " + output);
+            //            stringList.Add(acts.Activities[index].Id);
+            //        }
+            //        index++;
+            //    }
+            //    //var actPurpose = new Activity() { From = new ChannelAccount("sid", "sname"), Text = "Genzeon Provider", Type = "message" };
+            //    //rr = client.Conversations.PostActivity(cnv.ConversationId, actPurpose);
+            //    //acts = client.Conversations.GetActivities(cnv.ConversationId);
+            //}
 
             //var cc = new DirectLineClientCredentials(secret);
             //cc.InitializeServiceClient(client);
