@@ -7,88 +7,137 @@ using Microsoft.Bot.Connector.DirectLine;
 using System.Net.Http;
 using System.Threading;
 using System.Text.RegularExpressions;
+using Microsoft.CognitiveServices.Speech;
 
 namespace HealthBot
 {
     class Program
     {
-        public static async Task Main()
+        private static int prevMsgs = 0;
+
+        public static void Main()
         {
-            var secret = "oSja0WXU_wk.eZJsFsUbHf5cpuQ8EqNqLevrRIPqylHJBt7vIlCi1WA";
-            var botName = "HB-Genzeon";
-            var client = new DirectLineClient(secret);
-            var cnv = client.Conversations.StartConversation();
-            var stringList = new List<String>();
-            bool exit = false;
-            int prevMsgs = 0;
+            var exit = false;
             do
             {
-                Console.Write("Type your message: ");
+                Console.WriteLine("Genzeon Healthbot Research");
+                Console.Write(" enter 1 for TextSession, enter 2 for SpeechSession: ");
+                var option = Console.ReadLine();
+                if(!String.IsNullOrWhiteSpace(option))
+                {
+                    if(option == "1")
+                    {
+                        var cnv = StartHBConversation();
+                        exit=StartTextSession(cnv.Client, cnv.Conversation);
+                        
+                    }
+                    else if(option == "2")
+                    {
+                        var cnv = StartHBConversation();
+                        exit = StartSpeechSession(cnv.Client, cnv.Conversation);
+                    }
+
+                }
+
+            } while (!exit);
+
+
+        }
+
+        private static bool StartTextSession(DirectLineClient client, Conversation cnv)
+        {
+            //var secret = "oSja0WXU_wk.eZJsFsUbHf5cpuQ8EqNqLevrRIPqylHJBt7vIlCi1WA";
+            //Healthcare Bot APP secret:
+            bool exit = false;
+            //Azure SpeechtoText Configuration:
+            //var config = SpeechConfig.FromSubscription("2223424bc1bd4cc0991f8813917277a6", "westus");
+            do
+            {
+                Console.Write("Type your message or bye or exit or quit to end this session: ");
                 var input = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(input)) continue;
                 if (Regex.IsMatch(input, "bye|exit|quit"))
+                    break;
+                else
+                {
+                    PostToHealthBot(input, client, cnv);
+                }
+            } while (!exit);
+            return true;
+        }
+
+        private static void PostToHealthBot(string input, DirectLineClient client, Conversation cnv)
+        {
+            //var botName = "gznhbdev";
+            var botName = "myhbot";
+            
+            var usrMsg = new Activity() { From = new ChannelAccount("sid", "sname"), Text = input, Type = "message" };
+            var rr = client.Conversations.PostActivity(cnv.ConversationId, usrMsg);
+            Thread.Sleep(1000);
+            var acts = client.Conversations.GetActivities(cnv.ConversationId);
+            var botMsgs = acts.Activities.Where(a => string.Equals(a.From.Name, botName,StringComparison.OrdinalIgnoreCase));
+            foreach (var bm in botMsgs.Skip(prevMsgs))
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"Bot Message: {bm.Text}");
+            }
+            Console.ResetColor();
+            prevMsgs = botMsgs.Count();
+        }
+
+        private static(DirectLineClient Client,  Conversation Conversation) StartHBConversation()
+        {
+            //var secret = "c2Nb5-ENwqg.O7fE_fx56mxGdewzFq0JiJ561pO3PesjfLuPKVGYJJI";
+            var secret = "C7qnGmJ_Uo8.cGdO53PW5MmAT7xq707cOTBfNSebO6n8waNOM1Eqc0Y";
+            var client = new DirectLineClient(secret);
+            return (client, client.Conversations.StartConversation());
+        }
+
+        private static bool StartSpeechSession(DirectLineClient client, Conversation cnv)
+        {
+            var exit = false;
+
+            do
+            {
+                Console.WriteLine("Say something or bye or exit or quit to end this session...");
+                var input = GetSpeechFromUser().Result;
+                if (string.IsNullOrWhiteSpace(input)) continue;
+
+                if (string.Equals(input,"bye.",StringComparison.OrdinalIgnoreCase) || string.Equals(input, "exit.", StringComparison.OrdinalIgnoreCase) || string.Equals(input, "quit.", StringComparison.OrdinalIgnoreCase))
                 {
                     exit = true;
                 }
                 else
                 {
-                    var usrMsg = new Activity() { From = new ChannelAccount("sid", "sname"), Text = input, Type = "message" };
-                    var rr = client.Conversations.PostActivity(cnv.ConversationId, usrMsg);
-                    Thread.Sleep(850);
-                    var acts = client.Conversations.GetActivities(cnv.ConversationId);
-                    var botMsgs = acts.Activities.Where(a => a.From.Name == botName);
-                    //var botMsgs = acts.Activities;
-
-                    foreach (var bm in botMsgs.Skip(prevMsgs))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine($"Bot Message: {bm.Text}");
-                    }
-                    Console.ResetColor();
-                    prevMsgs = botMsgs.Count();
+                    PostToHealthBot(input, client, cnv);
                 }
+                
             } while (!exit);
+            return true;
+        }
 
-            //while (true)
-            //{
-            //    int index = 0;
-
-            //    var input = Console.ReadLine();
-            //    if (input == "bye" || input == "exit")
-            //    {
-            //        break;
-            //    }
-            //    var actGreeting = new Activity() { From = new ChannelAccount("sid", "sname"), Text = input, Type = "message" };
-            //    var rr = client.Conversations.PostActivity(cnv.ConversationId, actGreeting);
-            //    Thread.Sleep(850);
-            //    stringList.Add(rr.Id);
-            //    var acts = client.Conversations.GetActivities(cnv.ConversationId);
-
-
-            //    while (index < acts.Activities.Count)
-            //    {
-            //        if (!stringList.Contains(acts.Activities[index].Id))
-            //        {
-            //            var output = acts.Activities[index].Text;
-            //            Console.WriteLine("Genzeon Bot: " + output);
-            //            stringList.Add(acts.Activities[index].Id);
-            //        }
-            //        index++;
-            //    }
-            //    //var actPurpose = new Activity() { From = new ChannelAccount("sid", "sname"), Text = "Genzeon Provider", Type = "message" };
-            //    //rr = client.Conversations.PostActivity(cnv.ConversationId, actPurpose);
-            //    //acts = client.Conversations.GetActivities(cnv.ConversationId);
-            //}
-
-            //var cc = new DirectLineClientCredentials(secret);
-            //cc.InitializeServiceClient(client);
-
-            //var req = new HttpRequestMessage(HttpMethod.Post, "https://directline.botframework.com/v3/directline/tokens/generate");
-            //var ct = new CancellationToken();
-
-            //await cc.ProcessHttpRequestAsync(req, ct);
-            //var cnv = client.Tokens.GenerateTokenForNewConversation();
-            //var s = cnv.ConversationId;
+        public async static Task<string> GetSpeechFromUser()
+        {
+            var config = SpeechConfig.FromSubscription("2223424bc1bd4cc0991f8813917277a6", "westus");
+            var text = String.Empty;
+            using (var recognizer = new SpeechRecognizer(config))
+            {
+                var result = await recognizer.RecognizeOnceAsync();
+                if (result.Reason == ResultReason.RecognizedSpeech)
+                {
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine($"Captured speech: {result.Text}{Environment.NewLine}");
+                    text = result.Text;
+                    Console.ResetColor();
+                }
+                else if (result.Reason == ResultReason.NoMatch)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("NOMATCH: Speech could not be recognized.");
+                    Console.ResetColor();
+                }
+            }
+            return text;
         }
     }
 }
